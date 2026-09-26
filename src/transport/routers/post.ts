@@ -1,5 +1,3 @@
-
-
 import { Router } from "express";
 import * as handlersPost from "../handlers/post.js";
 

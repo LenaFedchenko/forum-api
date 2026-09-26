@@ -1,3 +1,4 @@
+import type { Post } from "../transport/dto/post/postes.js"
 
 let posts = [
     {
@@ -29,20 +30,20 @@ let posts = [
         category: "horror"
     },
 ]
-async function addPostProm(post, fail) {
+async function addPostProm(post: Post, fail: boolean): Promise<Post> {
     return new Promise((resolve, reject) => {
         setTimeout(() => {
-            if (fail === "true") {
+            if (fail === true) {
                 reject(new Error("Failed to save post"))
                 return
             }
             posts = [...posts, post]
-            resolve(posts)
+            resolve(post)
         }, 500)
     })
 }
 
-export function getAll(take, category){
+export function getAll(take: number, category: string){
 
     if(!take){
         return [...posts]
@@ -54,7 +55,7 @@ export function getAll(take, category){
     return posts.slice(0, take)
     }
 
-export function getById(id){
+export function getById(id: number){
     const isFind = posts.find((post) => {
         return post.id === id
         
@@ -62,6 +63,6 @@ export function getById(id){
     return isFind
 }
 
-export async function addPost(post, fail){
+export async function addPost(post: Post, fail: boolean){
     return await addPostProm(post, fail)
 }

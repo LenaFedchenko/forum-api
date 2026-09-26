@@ -1,5 +1,5 @@
 import express from 'express'
-import * as routerPost from './routers/post.js' 
+import * as routerPost from './transport/routers/post.js'
 
 const app = express()
 app.use(express.json())

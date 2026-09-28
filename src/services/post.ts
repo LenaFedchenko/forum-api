@@ -1,16 +1,23 @@
-import * as PostsRepo from '../repositories/post.js';
-import type { Post } from '../transport/dto/post/postes.js';
 
-export function getAll(take: number, category: string){
-    const posts = PostsRepo.getAll(take, category)
-    return posts
+import type { PostRepository } from '../domen/post/repository.js';
+import type { PostServices } from './post/post.types.js';
+
+export async function createPostService( postRepository: PostRepository) :Promise<PostServices>{
+    return{
+        getAll(take, category){
+            const posts = postRepository.getAll(take, category)
+            return posts
+        },
+        
+        getById(id){
+            const post = postRepository.getById(id)
+            return post
+        },
+        
+        async addPost(post, fail){
+            return await postRepository.addPost(post, fail)
+        }
+    }
 }
 
-export function getById(id: number){
-    const post = PostsRepo.getById(id)
-    return post
-}
 
-export async function addPost(post: Post, fail: boolean){
-    return await PostsRepo.addPost(post, fail)
-}

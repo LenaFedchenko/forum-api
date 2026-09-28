@@ -1,11 +1,28 @@
 import express from 'express'
-import * as routerPost from './transport/routers/post.js'
+
+import { createPostRepository } from './repositories/post.js'
+import { createPostService } from './services/post.js'
+import { createPostHandlers } from './transport/handlers/post.js'
+import { createPostRouter } from './transport/routers/post.js'
 
 const app = express()
+
 app.use(express.json())
-app.use('/posts', routerPost.default)
 
+async function start() {
+    const postRepository = createPostRepository()
 
-app.listen(3000, () => {
-    console.log('Server is running on http://localhost:3000')
-})
+    const postServices = await createPostService(postRepository)
+
+    const postHandlers = await createPostHandlers(postServices)
+
+    const postRouter = createPostRouter(postHandlers)
+
+    app.use('/posts', postRouter)
+
+    app.listen(3000, () => {
+        console.log('Server is running on http://localhost:3000')
+    })
+}
+
+start()

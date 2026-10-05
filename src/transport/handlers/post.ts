@@ -2,21 +2,31 @@ import type {Response, Request} from "express"
 import type { PostResponse} from "../dto/post/responses.js";
 import type { QueryParams, RouteParams, PostRequest } from "../dto/post/requestes.js";
 import type { MessageErrors } from "../dto/post/errors.js";
-import type { Post } from "../../domen/post/entity.js";
 import type { PostServices } from "../../services/post/post.types.js";
 
 
 
-export interface PostHandler{
-    getAll(req: Request<{}, PostResponse[] | MessageErrors, {}, QueryParams>, res: Response<PostResponse[] | MessageErrors>): Response<PostResponse[] | MessageErrors> | void
-    getById(req: Request<RouteParams, PostResponse | MessageErrors, {}, {}>, res: Response<PostResponse | MessageErrors>): Response<PostResponse | MessageErrors>
-    addPost(req: Request<{}, PostResponse | MessageErrors, PostRequest, QueryParams>, res: Response<PostResponse | MessageErrors>): Promise<Response<PostResponse | MessageErrors>>
+export interface PostHandler {
+    getAll(
+        req: Request<{}, PostResponse[] | MessageErrors, {}, QueryParams>,
+        res: Response<PostResponse[] | MessageErrors>
+    ): Promise<Response<PostResponse[] | MessageErrors> | void>;
+
+    getById(
+        req: Request<RouteParams, PostResponse | MessageErrors, {}, {}>,
+        res: Response<PostResponse | MessageErrors>
+    ): Promise<Response<PostResponse | MessageErrors>>;
+
+    addPost(
+        req: Request<{}, PostResponse | MessageErrors, PostRequest, {}>,
+        res: Response<PostResponse | MessageErrors>
+    ): Promise<Response<PostResponse | MessageErrors>>;
 }
 
 
-export async function createPostHandlers(PostServices: PostServices) :Promise<PostHandler> {
+export function createPostHandlers(PostServices: PostServices) : PostHandler {
     return {
-        getAll(req, res){
+        async getAll(req, res){
             const {take} = req.query
             const {category} = req.query
             const intTake = Number(take)
@@ -26,11 +36,11 @@ export async function createPostHandlers(PostServices: PostServices) :Promise<Po
                 })
                 return
             }
-            const posts = PostServices.getAll(intTake, category)
+            const posts = await PostServices.getAll(intTake, category)
             res.status(200).json(posts) 
         },
 
-        getById(req, res){
+        async getById(req, res){
             const {id} = req.params
             const intId = Number(id)
             if (!Number.isInteger(intId) || intId <= 0){
@@ -38,7 +48,7 @@ export async function createPostHandlers(PostServices: PostServices) :Promise<Po
                     message: "number had to be positive"
                 })
             }
-            const post = PostServices.getById(intId)
+            const post = await PostServices.getById(intId)
             if (!post){
                 return res.status(404).json({
                     message: "post not found"
@@ -49,7 +59,6 @@ export async function createPostHandlers(PostServices: PostServices) :Promise<Po
         
         async addPost(req, res){
             let {id, title, content, author, category} = req.body
-            const {fail} = req.query
         
             if (!title || !content || !author || !category){
                 return res.status(400).json({
@@ -57,7 +66,7 @@ export async function createPostHandlers(PostServices: PostServices) :Promise<Po
                 })
             }
             try {
-                const post = await PostServices.addPost({id, title, content, author, category}, fail)
+                const post = await PostServices.addPost({id, title, content, author, category})
                 return res.status(201).json(post)
             } catch (error) {
                 return res.status(400).json({

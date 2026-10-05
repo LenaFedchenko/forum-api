@@ -1,68 +1,31 @@
 import type { PostRepository } from "../domen/post/repository.js"
+import { db } from "../prisma/db.js"
 
 
-export  function createPostRepository() :PostRepository {
-    let posts = [
-        {
-            id: 1,
-            title: "lalala",
-            content: "content",
-            author: "ya",
-            category: "horror"
-        },
-        {
-            id: 2,
-            title: "lalala2",
-            content: "content2",
-            author: "ya2",
-            category: "horror2"
-        },
-        {
-            id: 3,
-            title: "lalala3",
-            content: "content3",
-            author: "ya3",
-            category: "horror3"
-        },
-        {
-            id: 4,
-            title: "lalala3",
-            content: "content3",
-            author: "ya3",
-            category: "horror"
-        },
-    ]
+export function createPostRepository() :PostRepository {
     return{
-        getAll(take, category){
-            if(!take){
-                return [...posts]
+        async getAll(take, category) {
+            if (category && take) {
+                return await db.orm.public.Post.where({ category }).limit(take).all();
             }
-            if (category){
-                const filteredPosts = posts.filter(post => post.category === category)
-                return filteredPosts.slice(0, take)
+
+            if (category) {
+                return await db.orm.public.Post.where({ category }).all();
             }
-            return posts.slice(0, take)
+
+            if (take) {
+                return await db.orm.public.Post.limit(take).all();
+            }
+
+            return await db.orm.public.Post.all();
         },
 
-        getById(id){
-            const isFind = posts.find((post) => {
-                return post.id === id
-                
-            })
-            return isFind
+        async getById(id){
+            return await db.orm.public.Post.where({ id: id }).first()
         },
     
-        async addPost(post, fail){
-            return new Promise((resolve, reject) => {
-                setTimeout(() => {
-                    if (fail === true) {
-                        reject(new Error("Failed to save post"))
-                        return
-                    }
-                    posts = [...posts, post]
-                    resolve(post)
-                }, 500)
-            })
+        async addPost(post){
+            return await db.orm.public.Post.create(post)
         }
     }
 }

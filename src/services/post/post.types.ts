@@ -1,7 +1,7 @@
 import type { Post } from "../../domen/post/entity.js"
 
 export interface PostServices{
-    getAll(take?: number, category?: string): Post[]
-    getById(id?: number): Post | undefined
-    addPost(post: Post, fail: boolean): Promise<Post>
+    getAll(take?: number, category?: string): Promise<Post[]>
+    getById(id: number): Promise<Post | null>
+    addPost(post: Post): Promise<Post>
 }

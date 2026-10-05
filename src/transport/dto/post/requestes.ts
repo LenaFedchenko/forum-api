@@ -1,7 +1,6 @@
 export interface QueryParams{
     take: string | undefined
     category: string 
-    fail: boolean
 }
 export interface RouteParams{
     id: string | undefined

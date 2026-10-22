@@ -5,10 +5,10 @@ export interface QueryParams{
 export interface RouteParams{
     id: string | undefined
 }
-export interface PostRequest{
-    id: number
-    title: string
-    content: string
-    author: string
-    category: string
+export interface PostRequest {
+    title: string;
+    content: string | null;
+    author: string;
+    category: string;
+    categoryId: number;
 }

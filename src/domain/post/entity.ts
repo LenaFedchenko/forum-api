@@ -2,6 +2,7 @@ export interface Post {
     id: number;
     title: string;
     content: string | null;
-    category: string;
     author: string;
+    category: string;
+    categoryId: number | null;
 }

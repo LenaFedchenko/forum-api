@@ -1,7 +1,7 @@
 import type { Response, Request } from "express"
 import type { PostResponse } from "../dto/post/responses.js";
 import type { QueryParams, RouteParams, PostRequest } from "../dto/post/requestes.js";
-import type { MessageErrors } from "../dto/post/errors.js";
+import type { MessageErrors } from "../dto/errors.js";
 import type { PostServices } from "../../services/types/post.types.js";
 
 

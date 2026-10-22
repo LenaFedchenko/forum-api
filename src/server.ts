@@ -11,6 +11,10 @@ import { createCategoryService } from './services/category.js'
 import { db } from './prisma/db.js'
 import { createCategoryHandlers } from './transport/handlers/category.js'
 import { createCategoryRouter } from './transport/routers/category.js'
+import { createUserRepository } from './repositories/user/register.js'
+import { createRegister } from './services/user.js'
+import { createUserHandler } from './transport/handlers/user.js'
+import { createUserRouter } from './transport/routers/user.js'
 
 const app = express()
 
@@ -37,6 +41,12 @@ async function start() {
 
     app.use('/posts', postRouter)
     app.use('/categories', categoryRouter)
+    const userRepository = createUserRepository(db);
+    const userService = createRegister(userRepository);
+    const userHandler = createUserHandler(userService);
+    const userRouter = createUserRouter(userHandler);
+
+    app.use("/users", userRouter);
 
     app.listen(3000, () => {
         console.log('Server is running on http://localhost:3000')

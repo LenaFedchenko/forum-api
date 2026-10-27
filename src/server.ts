@@ -15,12 +15,16 @@ import { createUserRepository } from './repositories/user/register.js'
 import { createRegister } from './services/user.js'
 import { createUserHandler } from './transport/handlers/user.js'
 import { createUserRouter } from './transport/routers/user.js'
+import cors from 'cors'
+import { signAccessToken } from './lib/tocken.js'
 
 const app = express()
 
+app.use(cors())
 app.use(express.json())
 
 async function start() {
+    
     const postRepository = createPostRepository()
     const categoryRepository = createCategoryRepository(db)
 
@@ -42,7 +46,7 @@ async function start() {
     app.use('/posts', postRouter)
     app.use('/categories', categoryRouter)
     const userRepository = createUserRepository(db);
-    const userService = createRegister(userRepository);
+    const userService = createRegister(userRepository, {signAccessToken});
     const userHandler = createUserHandler(userService);
     const userRouter = createUserRouter(userHandler);
 

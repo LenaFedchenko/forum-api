@@ -18,6 +18,14 @@ export function hashPasswordFunc(password: string): Promise<string>{
 export function verifyPassword(
     hashPassword: string,
     password: string
-): Promise<boolean>{
-    return argon2.verify(hashPassword, password)
+): Promise<boolean> {
+    const pepper = process.env.PEPPER
+
+    if (!pepper) {
+        throw new Error("PEPPER_NOT_FOUND")
+    }
+
+    return argon2.verify(hashPassword, password, {
+        secret: Buffer.from(pepper)
+    })
 }

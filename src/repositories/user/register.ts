@@ -6,6 +6,9 @@ export function createUserRepository(db: PostgresClient<Contract>): UserReposito
     return{
         async createUser(user){
             return await db.orm.public.User.create(user)
+        },
+        async getUserByEmail(email) {
+            return await db.orm.public.User.where({ email }).first();
         }
     }
 }

@@ -6,6 +6,7 @@ export function createUserRouter(UserHandler: UserHandler) {
 
     router.post("/register", UserHandler.register);
     router.post("/login", UserHandler.login);
+    router.post("/refresh", UserHandler.refresh);
 
     return router;
 }

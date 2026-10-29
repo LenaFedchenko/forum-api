@@ -9,6 +9,9 @@ export function createUserRepository(db: PostgresClient<Contract>): UserReposito
         },
         async getUserByEmail(email) {
             return await db.orm.public.User.where({ email }).first();
+        },
+        async getUserById(id) {
+            return await db.orm.public.User.where({ id }).first();
         }
     }
 }

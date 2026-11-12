@@ -17,33 +17,39 @@ export function createPostRepository(): PostRepository {
             }
 
             if (categoryId && take) {
-                return await db.orm.public.Post.where({ categoryId }).include("categoryRef").limit(take).all();
+                return await db.orm.public.Post.where({ categoryId }).include("category").include("user").limit(take).all();
             }
 
             if (categoryId) {
-                return await db.orm.public.Post.where({ categoryId }).include("categoryRef").all();
+                return await db.orm.public.Post.where({ categoryId }).include("category").include("user").all();
             }
 
             if (take) {
-                return await db.orm.public.Post.include("categoryRef").limit(take).all();
+                return await db.orm.public.Post.include("category").include("user").limit(take).all();
             }
 
-            return await db.orm.public.Post.include("categoryRef").all();
+            return await db.orm.public.Post.include("category").include("user").all();
         },
 
         async getById(id) {
-            return await db.orm.public.Post.where({ id: id }).include("categoryRef").first();
+            return await db.orm.public.Post.where({ id: id }).include("category").include("user").first();
         },
 
         async addPost(post) {
-            return await db.orm.public.Post.create({
+            console.log("USER ID:", post.userId)
+            return await db.orm.public.Post.include("category").include("user").create({
                 title: post.title,
                 content: post.content,
-                author: post.author,
-                category: post.category,
-                categoryRef: (category) =>
-                    category.connect({ id: post.categoryId! })
+                categoryId: post.categoryId,
+                userId: post.userId
             });
+        },
+        async getPostsByAuthorId(userId) {
+            return await db.orm.public.Post
+                .where({ userId })
+                .include("category")
+                .include("user")
+                .all();
         }
     }
 }

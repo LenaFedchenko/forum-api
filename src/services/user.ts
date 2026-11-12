@@ -76,6 +76,17 @@ export function createRegister(
                 accessToken: tokenService.signAccessToken(user.id),
                 refreshToken: tokenService.signRefreshToken(user.id)
             }
+        },
+        async me(userId: number) {
+            const user = await userRepository.getUserById(userId)
+            if (!user) {
+                throw new Error("USER_NOT_FOUND")
+            }
+            return {
+                id: user.id,
+                email: user.email,
+                name: user.name
+            }
         }
 
     };

@@ -80,20 +80,6 @@
           },
           "Post": {
             "fields": {
-              "author": {
-                "nullable": false,
-                "type": {
-                  "codecId": "pg/text@1",
-                  "kind": "scalar"
-                }
-              },
-              "category": {
-                "nullable": false,
-                "type": {
-                  "codecId": "pg/text@1",
-                  "kind": "scalar"
-                }
-              },
               "categoryId": {
                 "nullable": true,
                 "type": {
@@ -123,7 +109,7 @@
                 }
               },
               "userId": {
-                "nullable": true,
+                "nullable": false,
                 "type": {
                   "codecId": "pg/int4@1",
                   "kind": "scalar"
@@ -131,7 +117,7 @@
               }
             },
             "relations": {
-              "categoryRef": {
+              "category": {
                 "cardinality": "N:1",
                 "nullable": true,
                 "on": {
@@ -149,7 +135,7 @@
               },
               "user": {
                 "cardinality": "N:1",
-                "nullable": true,
+                "nullable": false,
                 "on": {
                   "localFields": [
                     "userId"
@@ -166,12 +152,6 @@
             },
             "storage": {
               "fields": {
-                "author": {
-                  "column": "author"
-                },
-                "category": {
-                  "column": "category"
-                },
                 "categoryId": {
                   "column": "categoryId"
                 },
@@ -307,16 +287,6 @@
             },
             "Post": {
               "columns": {
-                "author": {
-                  "codecId": "pg/text@1",
-                  "nativeType": "text",
-                  "nullable": false
-                },
-                "category": {
-                  "codecId": "pg/text@1",
-                  "nativeType": "text",
-                  "nullable": false
-                },
                 "categoryId": {
                   "codecId": "pg/int4@1",
                   "nativeType": "int4",
@@ -344,7 +314,7 @@
                 "userId": {
                   "codecId": "pg/int4@1",
                   "nativeType": "int4",
-                  "nullable": true
+                  "nullable": false
                 }
               },
               "foreignKeys": [
@@ -460,7 +430,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "826be455c03951622a937f0638fa85cdaf03c0f05ccc6dee1475596d5ddcac8e"
+    "storageHash": "129bc046c0df4a8871d8c4c3890bc9a0f833048fcfa44c7ef4b92a45725ef4de"
   },
   "capabilities": {
     "postgres": {

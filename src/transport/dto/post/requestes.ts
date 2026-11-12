@@ -8,7 +8,6 @@ export interface RouteParams{
 export interface PostRequest {
     title: string;
     content: string | null;
-    author: string;
-    category: string;
     categoryId: number;
+    userId: number | null;
 }

@@ -3,13 +3,12 @@ model Post {
   id          Int       @id @default(autoincrement())
   title       String    @unique
   content     String?
-  author      String
 
-  category    String
   categoryId  Int?
-  categoryRef Category? @relation(fields: [categoryId], references: [id])
-  userId      Int?
-  user        User?     @relation(fields: [userId], references: [id])
+  category Category? @relation(fields: [categoryId], references: [id])
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id])
+
 }
 
 model Category {

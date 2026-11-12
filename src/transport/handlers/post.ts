@@ -20,6 +20,10 @@ export interface PostHandler {
         req: Request<{}, PostResponse | MessageErrors, PostRequest, {}>,
         res: Response<PostResponse | MessageErrors>
     ): Promise<Response<PostResponse | MessageErrors>>;
+    getMyPosts(
+        req: Request<{}, PostResponse[] | MessageErrors, {}, {}>,
+        res: Response<PostResponse[] | MessageErrors>
+    ): Promise<Response<PostResponse[] | MessageErrors>>;
 }
 
 
@@ -65,9 +69,15 @@ export function createPostHandlers(PostServices: PostServices): PostHandler {
         },
 
         async addPost(req, res) {
-            const { title, content, author, category, categoryId } = req.body
+            const { title, content, categoryId } = req.body
+            const userId = res.locals.userId
+            if (typeof userId !== "number" || !Number.isSafeInteger(userId) || userId <= 0) {
+                return res.status(401).json({
+                    message: "unauthorized"
+                })
+            }
 
-            if (!title || !author || !category) {
+            if (!title || !categoryId) {
                 return res.status(422).json({
                     message: "required fields are missing"
                 })
@@ -82,12 +92,24 @@ export function createPostHandlers(PostServices: PostServices): PostHandler {
             const post = await PostServices.addPost({
                 title,
                 content,
-                author,
-                category,
+                userId: userId,
                 categoryId
             })
 
             return res.status(201).json(post)
+        },
+        async getMyPosts(req, res) {
+            const userId = res.locals.userId
+
+            if (typeof userId !== "number" || !Number.isSafeInteger(userId) || userId <= 0) {
+                return res.status(401).json({
+                    message: "unauthorized"
+                })
+            }
+
+            const posts = await PostServices.getPostsByAuthorId(userId)
+
+            return res.status(200).json(posts)
         }
     }
 }

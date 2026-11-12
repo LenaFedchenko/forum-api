@@ -18,6 +18,7 @@ export interface UserService {
         accessToken: string;
         refreshToken: string;
     }>;
+    me(userId: number): Promise<PublicUser | null>;
 }
 
 export interface TokenService {

@@ -22,6 +22,10 @@ export interface UserHandler {
         req: Request<{}, { accessToken: string } | UserError, {}>,
         res: Response<{ accessToken: string } | UserError>
     ): Promise<Response<{ accessToken: string } | UserError>>;
+    me(
+        req: Request<{}, UserResponse | UserError, {}>,
+        res: Response<UserResponse | UserError>
+    ): Promise<Response<UserResponse | UserError>>;
 }
 
 export function createUserHandler(userService: UserService): UserHandler {
@@ -188,6 +192,33 @@ export function createUserHandler(userService: UserService): UserHandler {
                         message: "user not found"
                     });
                 }
+
+                return res.status(500).json({
+                    message: "internal server error"
+                });
+            }
+        },
+        async me(req, res) {
+            const userId = res.locals.userId;
+
+            if (typeof userId !== "number") {
+                return res.status(401).json({
+                    message: "unauthorized"
+                });
+            }
+
+            try {
+                const user = await userService.me(userId);
+
+                if (!user) {
+                    return res.status(404).json({
+                        message: "user not found"
+                    });
+                }
+
+                return res.status(200).json(user);
+            } catch (error) {
+                console.error("ME ERROR:", error);
 
                 return res.status(500).json({
                     message: "internal server error"

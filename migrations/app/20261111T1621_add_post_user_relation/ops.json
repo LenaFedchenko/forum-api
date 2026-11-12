@@ -1,0 +1,44 @@
+[
+  {
+    "id": "dropColumn.Post.author",
+    "label": "Drop column \"author\" from \"Post\"",
+    "operationClass": "destructive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "author",
+        "table": "Post"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"author\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "Post",
+          "author"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "drop column \"author\"",
+        "sql": "ALTER TABLE \"public\".\"Post\" DROP COLUMN \"author\""
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"author\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "Post",
+          "author"
+        ]
+      }
+    ]
+  }
+]

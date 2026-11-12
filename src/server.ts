@@ -1,6 +1,7 @@
 import express from 'express'
 import cors from 'cors'
 import cookieParser from 'cookie-parser'
+import { createRequireAuth } from './middleware/requireAuth.js'
 
 import { createPostRepository } from './repositories/post.js'
 import { createPostService } from './services/post.js'
@@ -20,6 +21,7 @@ import { createUserRouter } from './transport/routers/user.js'
 import {
     signAccessToken,
     signRefreshToken,
+    verifyAccessToken,
     verifyRefreshToken
 } from './lib/tocken.js'
 
@@ -38,10 +40,12 @@ app.use(cookieParser())
 async function start() {
     const postRepository = createPostRepository()
     const categoryRepository = createCategoryRepository(db)
+    const userRepository = createUserRepository(db)
 
     const postServices = await createPostService(
         postRepository,
-        categoryRepository
+        categoryRepository,
+        userRepository
     )
 
     const categoryServices = await createCategoryService(
@@ -51,13 +55,6 @@ async function start() {
     const postHandlers = createPostHandlers(postServices)
     const categoryHandlers = createCategoryHandlers(categoryServices)
 
-    const postRouter = createPostRouter(postHandlers)
-    const categoryRouter = createCategoryRouter(categoryHandlers)
-
-    app.use('/posts', postRouter)
-    app.use('/categories', categoryRouter)
-
-    const userRepository = createUserRepository(db)
 
     const userService = createRegister(userRepository, {
         signAccessToken,
@@ -65,9 +62,16 @@ async function start() {
         verifyRefreshToken
     })
 
-    const userHandler = createUserHandler(userService)
-    const userRouter = createUserRouter(userHandler)
+    const requireAuth = createRequireAuth(verifyAccessToken)
 
+    const postRouter = createPostRouter(postHandlers, requireAuth)
+    const categoryRouter = createCategoryRouter(categoryHandlers)
+
+    const userHandler = createUserHandler(userService)
+    const userRouter = createUserRouter(userHandler, requireAuth)
+
+    app.use('/posts', postRouter)
+    app.use('/categories', categoryRouter)
     app.use('/users', userRouter)
 
     app.listen(3000, () => {

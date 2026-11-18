@@ -1,14 +1,13 @@
 // use prisma-8
 model Post {
-  id          Int       @id @default(autoincrement())
-  title       String    @unique
-  content     String?
+  id         Int       @id @default(autoincrement())
+  title      String    @unique
+  content    String?
 
-  categoryId  Int?
-  category Category? @relation(fields: [categoryId], references: [id])
-  userId      Int
-  user        User     @relation(fields: [userId], references: [id])
-
+  categoryId Int?
+  category   Category? @relation(fields: [categoryId], references: [id])
+  userId     Int
+  user       User      @relation(fields: [userId], references: [id])
 }
 
 model Category {
@@ -20,9 +19,19 @@ model Category {
 }
 
 model User {
-  id           Int    @id @default(autoincrement())
-  email        String @unique
-  name         String
-  hashPassword String
-  posts        Post[]
+  id              Int              @id @default(autoincrement())
+  email           String           @unique
+  name            String
+  hashPassword    String
+  posts           Post[]
+  refreshSessions RefreshSession[]
+}
+
+model RefreshSession {
+  id        Int      @id @default(autoincrement())
+  tokenHash String   @unique
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+  expiresAt DateTime
 }

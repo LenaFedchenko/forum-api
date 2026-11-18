@@ -1,11 +1,14 @@
 
+import type { refreshSessionRepository } from "../domain/refreshSession/repository";
 import type { UserRepository } from "../domain/user/repository";
 import { hashPasswordFunc, verifyPassword } from "../lib/password";
-import type { UserService, TokenService } from "./types/user.types";
+import type { UserService, TokenService, HashToken } from "./types/user.types";
 
 export function createRegister(
     userRepository: UserRepository,
-    tokenService: TokenService
+    tokenService: TokenService,
+    tokenHasher: HashToken,
+    refreshRepository: refreshSessionRepository
 ): UserService {
     return {
         async register(user) {
@@ -53,6 +56,13 @@ export function createRegister(
             if (!isValidPassword) {
                 throw new Error("INVALID_CREDENTIALS")
             }
+            const refreshToken = tokenService.signRefreshToken(user.id)
+            const hashedToken = tokenHasher.hashToken(refreshToken)
+            await refreshRepository.create({
+                tokenHash: hashedToken,
+                userId: user.id,
+                expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+            })
 
             return {
                 user: {
@@ -61,7 +71,7 @@ export function createRegister(
                     name: user.name
                 },
                 accessToken: tokenService.signAccessToken(user.id),
-                refreshToken: tokenService.signRefreshToken(user.id)
+                refreshToken: refreshToken
             }
         },
         async refresh(refreshToken: string) {
@@ -71,11 +81,30 @@ export function createRegister(
             if (!user) {
                 throw new Error("USER_NOT_FOUND")
             }
+            const newRefreshToken = tokenService.signRefreshToken(user.id)
+            const newTokenHash = tokenHasher.hashToken(newRefreshToken)
+            const oldTokenHash = tokenHasher.hashToken(refreshToken)
 
+            const rotationSuccess = await refreshRepository.rotation(
+                oldTokenHash,
+                newTokenHash,
+                new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+            )
+
+            if (!rotationSuccess) {
+                throw new Error("INVALID_TOKEN")
+            }
             return {
                 accessToken: tokenService.signAccessToken(user.id),
-                refreshToken: tokenService.signRefreshToken(user.id)
+                refreshToken: newRefreshToken
             }
+        },
+        async logout(token: string) {
+            if (!token) {
+                throw new Error("TOKEN_NOT_PROVIDED")
+            }
+            const tokenHash = tokenHasher.hashToken(token)
+            await refreshRepository.deleteByHash(tokenHash)
         },
         async me(userId: number) {
             const user = await userRepository.getUserById(userId)

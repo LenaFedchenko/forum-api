@@ -1,7 +1,8 @@
-import type { Request, Response } from "express";
+import type { CookieOptions, Request, Response } from "express";
 import type { UserResponse } from "../dto/user/responses.js";
 import type { LoginUser, UserService } from "../../services/types/user.types.js";
 import type { UserRequest } from "../dto/user/requestes.js";
+import { hasErrorCode, isUniqueViolation } from "../errors.js";
 
 export interface UserError {
     message: string;
@@ -22,10 +23,44 @@ export interface UserHandler {
         req: Request<{}, { accessToken: string } | UserError, {}>,
         res: Response<{ accessToken: string } | UserError>
     ): Promise<Response<{ accessToken: string } | UserError>>;
+    logout(
+        req: Request<{}, UserError, {}>,
+        res: Response<UserError>
+    ): Promise<Response<UserError>>;
     me(
         req: Request<{}, UserResponse | UserError, {}>,
         res: Response<UserResponse | UserError>
     ): Promise<Response<UserResponse | UserError>>;
+}
+
+const ACCESS_TOKEN_MAX_AGE = 15 * 60 * 1000;
+const REFRESH_TOKEN_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
+
+const baseCookieOptions: CookieOptions = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax"
+};
+
+// refresh-cookie уходит только на /users/*, то есть на refresh и logout
+const accessCookieOptions: CookieOptions = { ...baseCookieOptions, path: "/" };
+const refreshCookieOptions: CookieOptions = { ...baseCookieOptions, path: "/users" };
+
+function setAuthCookies(res: Response, tokens: { accessToken: string; refreshToken: string }) {
+    res.cookie("accessToken", tokens.accessToken, {
+        ...accessCookieOptions,
+        maxAge: ACCESS_TOKEN_MAX_AGE
+    });
+
+    res.cookie("refreshToken", tokens.refreshToken, {
+        ...refreshCookieOptions,
+        maxAge: REFRESH_TOKEN_MAX_AGE
+    });
+}
+
+function clearAuthCookies(res: Response) {
+    res.clearCookie("accessToken", accessCookieOptions);
+    res.clearCookie("refreshToken", refreshCookieOptions);
 }
 
 export function createUserHandler(userService: UserService): UserHandler {
@@ -55,21 +90,7 @@ export function createUserHandler(userService: UserService): UserHandler {
 
                 return res.status(201).json(user);
             } catch (error) {
-                if (
-                    error instanceof Error &&
-                    error.message === "EMAIL_ALREADY_EXISTS"
-                ) {
-                    return res.status(409).json({
-                        message: "email already exists"
-                    });
-                }
-
-                if (
-                    error !== null &&
-                    typeof error === "object" &&
-                    "sqlState" in error &&
-                    error.sqlState === "23505"
-                ) {
+                if (hasErrorCode(error, "EMAIL_ALREADY_EXISTS") || isUniqueViolation(error)) {
                     return res.status(409).json({
                         message: "email already exists"
                     });
@@ -103,34 +124,17 @@ export function createUserHandler(userService: UserService): UserHandler {
                     password
                 });
 
-                res.cookie("accessToken", result.accessToken, {
-                    httpOnly: true,
-                    secure: process.env.NODE_ENV === "production",
-                    sameSite: "lax",
-                    maxAge: 15 * 60 * 1000,
-                    path: "/"
-                });
-
-                res.cookie("refreshToken", result.refreshToken, {
-                    httpOnly: true,
-                    secure: process.env.NODE_ENV === "production",
-                    sameSite: "lax",
-                    maxAge: 7 * 24 * 60 * 60 * 1000,
-                    path: "/users"
-                });
+                setAuthCookies(res, result);
 
                 return res.status(200).json(result.user);
             } catch (error) {
-                console.error("LOGIN ERROR:", error);
-
-                if (
-                    error instanceof Error &&
-                    error.message === "INVALID_CREDENTIALS"
-                ) {
+                if (hasErrorCode(error, "INVALID_CREDENTIALS")) {
                     return res.status(401).json({
                         message: "invalid credentials"
                     });
                 }
+
+                console.error("LOGIN ERROR:", error);
 
                 return res.status(500).json({
                     message: "internal server error"
@@ -145,7 +149,7 @@ export function createUserHandler(userService: UserService): UserHandler {
                 typeof refreshToken !== "string" ||
                 !refreshToken.trim()
             ) {
-                return res.status(422).json({
+                return res.status(401).json({
                     message: "refresh token is required"
                 });
             }
@@ -153,51 +157,57 @@ export function createUserHandler(userService: UserService): UserHandler {
             try {
                 const result = await userService.refresh(refreshToken);
 
-                res.cookie("accessToken", result.accessToken, {
-                    httpOnly: true,
-                    secure: process.env.NODE_ENV === "production",
-                    sameSite: "lax",
-                    maxAge: 15 * 60 * 1000,
-                    path: "/"
-                });
-
-                res.cookie("refreshToken", result.refreshToken, {
-                    httpOnly: true,
-                    secure: process.env.NODE_ENV === "production",
-                    sameSite: "lax",
-                    maxAge: 7 * 24 * 60 * 60 * 1000,
-                    path: "/users"
-                });
+                setAuthCookies(res, result);
 
                 return res.status(200).json({
                     accessToken: result.accessToken
                 });
             } catch (error) {
-                console.error("REFRESH ERROR:", error);
+                if (hasErrorCode(error, "INVALID_TOKEN")) {
+                    clearAuthCookies(res);
 
-                if (
-                    error instanceof Error &&
-                    error.message === "INVALID_TOKEN"
-                ) {
                     return res.status(401).json({
                         message: "invalid refresh token"
                     });
                 }
 
-                if (
-                    error instanceof Error &&
-                    error.message === "USER_NOT_FOUND"
-                ) {
+                if (hasErrorCode(error, "USER_NOT_FOUND")) {
+                    clearAuthCookies(res);
+
                     return res.status(404).json({
                         message: "user not found"
                     });
                 }
+
+                console.error("REFRESH ERROR:", error);
 
                 return res.status(500).json({
                     message: "internal server error"
                 });
             }
         },
+
+        async logout(req, res) {
+            const refreshToken = req.cookies?.refreshToken;
+
+            try {
+                // без cookie удалять нечего, но cookie всё равно чистим: logout идемпотентный
+                if (typeof refreshToken === "string" && refreshToken.trim()) {
+                    await userService.logout(refreshToken);
+                }
+
+                clearAuthCookies(res);
+
+                return res.status(204).end();
+            } catch (error) {
+                console.error("LOGOUT ERROR:", error);
+
+                return res.status(500).json({
+                    message: "internal server error"
+                });
+            }
+        },
+
         async me(req, res) {
             const userId = res.locals.userId;
 
@@ -218,6 +228,12 @@ export function createUserHandler(userService: UserService): UserHandler {
 
                 return res.status(200).json(user);
             } catch (error) {
+                if (hasErrorCode(error, "USER_NOT_FOUND")) {
+                    return res.status(404).json({
+                        message: "user not found"
+                    });
+                }
+
                 console.error("ME ERROR:", error);
 
                 return res.status(500).json({

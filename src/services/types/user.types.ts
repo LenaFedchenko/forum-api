@@ -18,7 +18,11 @@ export interface UserService {
         accessToken: string;
         refreshToken: string;
     }>;
+    logout(token: string): Promise<void>;
     me(userId: number): Promise<PublicUser | null>;
+}
+export interface HashToken{
+    hashToken(token: string): string;
 }
 
 export interface TokenService {

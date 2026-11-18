@@ -1,3 +1,4 @@
+import { createHash, randomUUID } from "crypto"
 import "dotenv/config"
 import jwt from "jsonwebtoken"
 
@@ -24,6 +25,8 @@ export function signRefreshToken(userId: number): string {
     return jwt.sign({ type: "refresh" }, secretKey, {
         algorithm: "HS256",
         subject: String(userId),
+        // уникальный jti, чтобы два токена, выданных в одну секунду, не совпадали по хэшу
+        jwtid: randomUUID(),
         expiresIn: 7 * 24 * 60 * 60
     })
 }
@@ -58,4 +61,7 @@ export function verifyAccessToken(token: string): number {
         throw new Error("INVALID_TOKEN")
     }
 
+}
+export function hashRefreshToken(token: string): string {
+    return createHash("sha256").update(token).digest("hex")
 }

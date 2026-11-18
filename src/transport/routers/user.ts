@@ -11,6 +11,7 @@ export function createUserRouter(
     router.post("/register", userHandler.register);
     router.post("/login", userHandler.login);
     router.post("/refresh", userHandler.refresh);
+    router.post("/logout", userHandler.logout);
     router.get("/me", requireAuth, userHandler.me);
 
     return router;

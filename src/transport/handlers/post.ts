@@ -3,6 +3,7 @@ import type { PostResponse } from "../dto/post/responses.js";
 import type { QueryParams, RouteParams, PostRequest } from "../dto/post/requestes.js";
 import type { MessageErrors } from "../dto/errors.js";
 import type { PostServices } from "../../services/types/post.types.js";
+import { hasErrorCode, isUniqueViolation } from "../errors.js";
 
 
 export interface PostHandler {
@@ -43,8 +44,16 @@ export function createPostHandlers(PostServices: PostServices): PostHandler {
                 })
             }
 
-            const posts = await PostServices.getAll(intTake, category)
-            res.status(200).json(posts)
+            try {
+                const posts = await PostServices.getAll(intTake, category)
+                return res.status(200).json(posts)
+            } catch (error) {
+                console.error("GET POSTS ERROR:", error)
+
+                return res.status(500).json({
+                    message: "internal server error"
+                })
+            }
         },
 
         async getById(req, res) {
@@ -57,19 +66,27 @@ export function createPostHandlers(PostServices: PostServices): PostHandler {
                 })
             }
 
-            const post = await PostServices.getById(intId)
+            try {
+                const post = await PostServices.getById(intId)
 
-            if (!post) {
-                return res.status(404).json({
-                    message: "post not found"
+                if (!post) {
+                    return res.status(404).json({
+                        message: "post not found"
+                    })
+                }
+
+                return res.status(200).json(post)
+            } catch (error) {
+                console.error("GET POST ERROR:", error)
+
+                return res.status(500).json({
+                    message: "internal server error"
                 })
             }
-
-            return res.status(200).json(post)
         },
 
         async addPost(req, res) {
-            const { title, content, categoryId } = req.body
+            const { title, content, categoryId } = req.body ?? {}
             const userId = res.locals.userId
             if (typeof userId !== "number" || !Number.isSafeInteger(userId) || userId <= 0) {
                 return res.status(401).json({
@@ -77,7 +94,7 @@ export function createPostHandlers(PostServices: PostServices): PostHandler {
                 })
             }
 
-            if (!title || !categoryId) {
+            if (typeof title !== "string" || !title.trim() || categoryId === undefined || categoryId === null) {
                 return res.status(422).json({
                     message: "required fields are missing"
                 })
@@ -89,14 +106,46 @@ export function createPostHandlers(PostServices: PostServices): PostHandler {
                 })
             }
 
-            const post = await PostServices.addPost({
-                title,
-                content,
-                userId: userId,
-                categoryId
-            })
+            if (content !== undefined && content !== null && typeof content !== "string") {
+                return res.status(400).json({
+                    message: "content must be a string"
+                })
+            }
 
-            return res.status(201).json(post)
+            try {
+                const post = await PostServices.addPost({
+                    title,
+                    content: content ?? null,
+                    userId: userId,
+                    categoryId
+                })
+
+                return res.status(201).json(post)
+            } catch (error) {
+                if (hasErrorCode(error, "CATEGORY_NOT_FOUND")) {
+                    return res.status(404).json({
+                        message: "category not found"
+                    })
+                }
+
+                if (hasErrorCode(error, "USER_NOT_FOUND")) {
+                    return res.status(404).json({
+                        message: "user not found"
+                    })
+                }
+
+                if (isUniqueViolation(error)) {
+                    return res.status(400).json({
+                        message: "post with this title already exists"
+                    })
+                }
+
+                console.error("ADD POST ERROR:", error)
+
+                return res.status(500).json({
+                    message: "internal server error"
+                })
+            }
         },
         async getMyPosts(req, res) {
             const userId = res.locals.userId
@@ -107,9 +156,17 @@ export function createPostHandlers(PostServices: PostServices): PostHandler {
                 })
             }
 
-            const posts = await PostServices.getPostsByAuthorId(userId)
+            try {
+                const posts = await PostServices.getPostsByAuthorId(userId)
 
-            return res.status(200).json(posts)
+                return res.status(200).json(posts)
+            } catch (error) {
+                console.error("GET MY POSTS ERROR:", error)
+
+                return res.status(500).json({
+                    message: "internal server error"
+                })
+            }
         }
     }
 }

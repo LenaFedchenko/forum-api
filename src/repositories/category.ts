@@ -1,23 +1,26 @@
-import type { PostgresClient } from "@prisma/orm-postgres/runtime";
-import type { Contract } from "../prisma/contract.d.js";
 import type { CategoryRepository } from "../domain/category/repository.js";
+import type { Database } from "../prisma/db.js";
+import { isUniqueViolation } from "./db-errors.js";
 
-export function createCategoryRepository(
-    db: PostgresClient<Contract>
-): CategoryRepository {
-    return {
-        async getAll() {
-            return await db.orm.public.Category.all();
-        },
+export function createCategoryRepository(db: Database): CategoryRepository {
+	return {
+		async getAll() {
+			return db.orm.public.Category.all();
+		},
 
-        async getById(id) {
-            return await db.orm.public.Category
-                .where({ id })
-                .first();
-        },
+		async getById(id) {
+			return db.orm.public.Category.where({ id }).first();
+		},
 
-        async addCategory(category) {
-            return await db.orm.public.Category.create(category);
-        }
-    };
+		async create(data) {
+			try {
+				return await db.orm.public.Category.create(data);
+			} catch (error) {
+				if (isUniqueViolation(error)) {
+					throw new Error("CATEGORY_ALREADY_EXISTS");
+				}
+				throw error;
+			}
+		},
+	};
 }

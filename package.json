@@ -1,40 +1,46 @@
 {
-  "name": "forum-api",
-  "version": "1.0.0",
-  "description": "",
-  "main": "src/server.js",
-  "type": "module",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "npx tsx src/server.ts",
-    "contract:emit": "prisma contract emit"
-  },
-  "author": "",
-  "license": "ISC",
-  "dependencies": {
-    "@prisma/orm-postgres": "^8.0.0-rc.14",
-    "@types/cookie-parser": "^1.4.10",
-    "@types/cors": "^2.8.19",
-    "@types/express": "^5.0.6",
-    "argon2": "^0.45.1",
-    "cookie-parse": "^0.4.0",
-    "cookie-parser": "^1.4.7",
-    "cors": "^2.8.6",
-    "dotenv": "^18.0.5",
-    "express": "^5.2.1",
-    "jsonwebtoken": "^9.0.3",
-    "temporal-polyfill": "^1.0.8",
-    "tsx": "^4.23.15"
-  },
-  "devDependencies": {
-    "@prisma/cli-engine": "^0.6.2",
-    "@types/jsonwebtoken": "^9.0.10",
-    "@types/node": "^26.6.4",
-    "prisma": "^8.0.0-rc.19"
-  },
-  "overrides": {
-    "prisma": {
-      "@prisma/orm-toolchain": "8.0.0-rc.14"
-    }
-  }
+	"name": "forum-api",
+	"version": "1.0.0",
+	"private": true,
+	"description": "",
+	"type": "module",
+	"scripts": {
+		"dev": "tsx watch src/app.ts",
+		"start": "tsx src/app.ts",
+		"typecheck": "tsc --noEmit",
+		"contract:emit": "prisma contract emit",
+		"format": "biome format --write .",
+		"lint": "biome lint .",
+		"check": "biome check .",
+		"check:fix": "biome check --write ."
+	},
+	"author": "",
+	"license": "ISC",
+	"dependencies": {
+		"@prisma/orm-postgres": "^8.0.0-rc.14",
+		"argon2": "^0.45.1",
+		"cookie-parser": "^1.4.7",
+		"cors": "^2.8.6",
+		"dotenv": "^18.0.5",
+		"express": "^5.2.1",
+		"jsonwebtoken": "^9.0.3",
+		"temporal-polyfill": "^1.0.8"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.6.8",
+		"@prisma/cli-engine": "^0.6.2",
+		"@types/cookie-parser": "^1.4.10",
+		"@types/cors": "^2.8.19",
+		"@types/express": "^5.0.6",
+		"@types/jsonwebtoken": "^9.0.10",
+		"@types/node": "^26.6.4",
+		"prisma": "^8.0.0-rc.19",
+		"tsx": "^4.23.15",
+		"typescript": "^6.0.3"
+	},
+	"overrides": {
+		"prisma": {
+			"@prisma/orm-toolchain": "8.0.0-rc.14"
+		}
+	}
 }

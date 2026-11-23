@@ -1,55 +1,53 @@
-import type { PostRepository } from "../domain/post/repository.js"
-import { db } from "../prisma/db.js"
+import type { PostRepository } from "../domain/post/repository.js";
+import type { Database } from "../prisma/db.js";
+import { isForeignKeyViolation, isUniqueViolation } from "./db-errors.js";
 
-export function createPostRepository(): PostRepository {
-    return {
-        async getAll(take, category) {
-            let categoryId;
+export function createPostRepository(db: Database): PostRepository {
+	// у автора берём только публичные поля, чтобы hashPassword не ушёл клиенту
+	function withRelations() {
+		return db.orm.public.Post.include("category").include("user", (user) =>
+			user.select("id", "name", "email"),
+		);
+	}
 
-            if (category) {
-                const foundCategory = await db.orm.public.Category
-                    .where({ name: category })
-                    .first();
+	return {
+		async getAll({ take, category } = {}) {
+			let query = withRelations();
 
-                if (!foundCategory) return [];
+			if (category) {
+				const foundCategory = await db.orm.public.Category.where({
+					name: category,
+				}).first();
+				if (!foundCategory) return [];
+				query = query.where({ categoryId: foundCategory.id });
+			}
 
-                categoryId = foundCategory.id;
-            }
+			return take === undefined ? query.all() : query.limit(take).all();
+		},
 
-            if (categoryId && take) {
-                return await db.orm.public.Post.where({ categoryId }).include("category").include("user").limit(take).all();
-            }
+		async getById(id) {
+			return withRelations().where({ id }).first();
+		},
 
-            if (categoryId) {
-                return await db.orm.public.Post.where({ categoryId }).include("category").include("user").all();
-            }
+		async create(data) {
+			try {
+				return await withRelations().create(data);
+			} catch (error) {
+				if (isUniqueViolation(error)) {
+					throw new Error("POST_ALREADY_EXISTS");
+				}
+				if (isForeignKeyViolation(error, "Post_categoryId_fkey")) {
+					throw new Error("CATEGORY_NOT_FOUND");
+				}
+				if (isForeignKeyViolation(error, "Post_userId_fkey")) {
+					throw new Error("USER_NOT_FOUND");
+				}
+				throw error;
+			}
+		},
 
-            if (take) {
-                return await db.orm.public.Post.include("category").include("user").limit(take).all();
-            }
-
-            return await db.orm.public.Post.include("category").include("user").all();
-        },
-
-        async getById(id) {
-            return await db.orm.public.Post.where({ id: id }).include("category").include("user").first();
-        },
-
-        async addPost(post) {
-            console.log("USER ID:", post.userId)
-            return await db.orm.public.Post.include("category").include("user").create({
-                title: post.title,
-                content: post.content,
-                categoryId: post.categoryId,
-                userId: post.userId
-            });
-        },
-        async getPostsByAuthorId(userId) {
-            return await db.orm.public.Post
-                .where({ userId })
-                .include("category")
-                .include("user")
-                .all();
-        }
-    }
+		async getPostsByAuthorId(userId) {
+			return withRelations().where({ userId }).all();
+		},
+	};
 }

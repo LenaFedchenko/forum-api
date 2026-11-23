@@ -1,0 +1,11 @@
+// use prisma-8
+model Post {
+  id         Int       @id @default(autoincrement())
+  title      String    @unique
+  content    String?
+
+  categoryId Int?
+  category   Category? @relation(fields: [categoryId], references: [id])
+  userId     Int
+  user       User      @relation(fields: [userId], references: [id])
+}

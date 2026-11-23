@@ -1,12 +1,14 @@
-import { Router, type RequestHandler } from "express";
-import * as handlersPost from "../handlers/post.js";
+import { type RequestHandler, Router } from "express";
+import type { PostHandlers } from "../handlers/post.js";
 
-export function createPostRouter(PostHandler: handlersPost.PostHandler, requireAuth: RequestHandler) {
-    const router = Router();
-    router.get("/", PostHandler.getAll);
-    router.post("/", requireAuth, PostHandler.addPost)
-    router.get("/my", requireAuth, PostHandler.getMyPosts);
-    router.get("/:id", PostHandler.getById);
-    return router;
+export function createPostRouter(
+	handlers: PostHandlers,
+	requireAuth: RequestHandler,
+) {
+	const router = Router();
+	router.get("/", handlers.getAll);
+	router.post("/", requireAuth, handlers.addPost);
+	router.get("/my", requireAuth, handlers.getMyPosts);
+	router.get("/:id", handlers.getById);
+	return router;
 }
-

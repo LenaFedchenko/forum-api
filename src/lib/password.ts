@@ -1,31 +1,20 @@
-import "dotenv/config"
-import argon2 from "argon2"
+import argon2 from "argon2";
+import type { PasswordHasher } from "../services/auth/auth.types.js";
 
-export function hashPasswordFunc(password: string): Promise<string>{
-    const pepper = process.env.PEPPER
-    if (!pepper) {
-        throw new Error("PEPPER_NOT_FOUND")
-    }
-    return argon2.hash(password, {
-        type: argon2.argon2id,
-        memoryCost: 19456,
-        timeCost: 2,
-        parallelism: 1,
-        secret: Buffer.from(pepper)
-    })
-}
+const ARGON2_OPTIONS = {
+	type: argon2.argon2id,
+	memoryCost: 19456,
+	timeCost: 2,
+	parallelism: 1,
+} as const;
 
-export function verifyPassword(
-    hashPassword: string,
-    password: string
-): Promise<boolean> {
-    const pepper = process.env.PEPPER
-
-    if (!pepper) {
-        throw new Error("PEPPER_NOT_FOUND")
-    }
-
-    return argon2.verify(hashPassword, password, {
-        secret: Buffer.from(pepper)
-    })
+export function createPasswordHasher(pepper: Buffer): PasswordHasher {
+	return {
+		hash(password) {
+			return argon2.hash(password, { ...ARGON2_OPTIONS, secret: pepper });
+		},
+		verify(hash, password) {
+			return argon2.verify(hash, password, { secret: pepper });
+		},
+	};
 }

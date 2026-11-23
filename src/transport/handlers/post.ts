@@ -1,172 +1,144 @@
-import type { Response, Request } from "express"
+import type { RequestHandler } from "express";
+import type { PostService } from "../../services/post/post.types.js";
+import type { ErrorResponse, IdParams, NoParams } from "../dto/common.js";
+import type { CreatePostRequest, PostsQuery } from "../dto/post/requests.js";
 import type { PostResponse } from "../dto/post/responses.js";
-import type { QueryParams, RouteParams, PostRequest } from "../dto/post/requestes.js";
-import type { MessageErrors } from "../dto/errors.js";
-import type { PostServices } from "../../services/types/post.types.js";
-import { hasErrorCode, isUniqueViolation } from "../errors.js";
 
-
-export interface PostHandler {
-    getAll(
-        req: Request<{}, PostResponse[] | MessageErrors, {}, QueryParams>,
-        res: Response<PostResponse[] | MessageErrors>
-    ): Promise<Response<PostResponse[] | MessageErrors> | void>;
-
-    getById(
-        req: Request<RouteParams, PostResponse | MessageErrors, {}, {}>,
-        res: Response<PostResponse | MessageErrors>
-    ): Promise<Response<PostResponse | MessageErrors>>;
-
-    addPost(
-        req: Request<{}, PostResponse | MessageErrors, PostRequest, {}>,
-        res: Response<PostResponse | MessageErrors>
-    ): Promise<Response<PostResponse | MessageErrors>>;
-    getMyPosts(
-        req: Request<{}, PostResponse[] | MessageErrors, {}, {}>,
-        res: Response<PostResponse[] | MessageErrors>
-    ): Promise<Response<PostResponse[] | MessageErrors>>;
+export interface PostHandlers {
+	getAll: RequestHandler<
+		NoParams,
+		PostResponse[] | ErrorResponse,
+		unknown,
+		PostsQuery
+	>;
+	getById: RequestHandler<IdParams, PostResponse | ErrorResponse>;
+	addPost: RequestHandler<
+		NoParams,
+		PostResponse | ErrorResponse,
+		CreatePostRequest
+	>;
+	getMyPosts: RequestHandler<NoParams, PostResponse[] | ErrorResponse>;
 }
 
+export function createPostHandlers(postService: PostService): PostHandlers {
+	return {
+		async getAll(req, res) {
+			const { take, category } = req.query;
+			const intTake = take === undefined ? undefined : Number(take);
 
-export function createPostHandlers(PostServices: PostServices): PostHandler {
-    return {
-        async getAll(req, res) {
-            const { take } = req.query
-            const { category } = req.query
-            const intTake = take === undefined ? undefined : Number(take)
+			if (
+				intTake !== undefined &&
+				(!Number.isInteger(intTake) || intTake <= 0)
+			) {
+				res.status(400).json({ message: "take must be a positive integer" });
+				return;
+			}
 
-            if (
-                take !== undefined &&
-                (!Number.isInteger(intTake) || intTake! <= 0)
-            ) {
-                return res.status(400).json({
-                    message: "take must be positive"
-                })
-            }
+			try {
+				const posts = await postService.getAll({ take: intTake, category });
+				res.status(200).json(posts);
+			} catch (error) {
+				console.error(error);
+				res.status(500).json({ message: "Internal server error" });
+			}
+		},
 
-            try {
-                const posts = await PostServices.getAll(intTake, category)
-                return res.status(200).json(posts)
-            } catch (error) {
-                console.error("GET POSTS ERROR:", error)
+		async getById(req, res) {
+			const id = Number(req.params.id);
 
-                return res.status(500).json({
-                    message: "internal server error"
-                })
-            }
-        },
+			if (!Number.isInteger(id) || id <= 0) {
+				res.status(400).json({ message: "id must be a positive integer" });
+				return;
+			}
 
-        async getById(req, res) {
-            const { id } = req.params
-            const intId = Number(id)
+			try {
+				const post = await postService.getById(id);
+				if (!post) {
+					res.status(404).json({ message: "Post not found" });
+					return;
+				}
+				res.status(200).json(post);
+			} catch (error) {
+				console.error(error);
+				res.status(500).json({ message: "Internal server error" });
+			}
+		},
 
-            if (!Number.isInteger(intId) || intId <= 0) {
-                return res.status(400).json({
-                    message: "number must be positive"
-                })
-            }
+		async addPost(req, res) {
+			const userId = res.locals.userId;
+			if (userId === undefined) {
+				res.status(401).json({ message: "Unauthorized" });
+				return;
+			}
 
-            try {
-                const post = await PostServices.getById(intId)
+			const { title, content, categoryId } = req.body ?? {};
 
-                if (!post) {
-                    return res.status(404).json({
-                        message: "post not found"
-                    })
-                }
+			if (
+				typeof title !== "string" ||
+				!title.trim() ||
+				categoryId === undefined ||
+				categoryId === null
+			) {
+				res.status(422).json({ message: "Invalid post data" });
+				return;
+			}
 
-                return res.status(200).json(post)
-            } catch (error) {
-                console.error("GET POST ERROR:", error)
+			if (!Number.isInteger(categoryId) || categoryId <= 0) {
+				res.status(422).json({ message: "Invalid post data" });
+				return;
+			}
 
-                return res.status(500).json({
-                    message: "internal server error"
-                })
-            }
-        },
+			if (
+				content !== undefined &&
+				content !== null &&
+				typeof content !== "string"
+			) {
+				res.status(422).json({ message: "Invalid post data" });
+				return;
+			}
 
-        async addPost(req, res) {
-            const { title, content, categoryId } = req.body ?? {}
-            const userId = res.locals.userId
-            if (typeof userId !== "number" || !Number.isSafeInteger(userId) || userId <= 0) {
-                return res.status(401).json({
-                    message: "unauthorized"
-                })
-            }
+			try {
+				const post = await postService.addPost({
+					title,
+					content: content ?? null,
+					categoryId,
+					userId,
+				});
+				res.status(201).json(post);
+			} catch (error) {
+				if (error instanceof Error) {
+					if (error.message === "CATEGORY_NOT_FOUND") {
+						res.status(404).json({ message: "Category not found" });
+						return;
+					}
+					if (error.message === "USER_NOT_FOUND") {
+						res.status(404).json({ message: "User not found" });
+						return;
+					}
+					if (error.message === "POST_ALREADY_EXISTS") {
+						res.status(409).json({ message: "Post already exists" });
+						return;
+					}
+				}
+				console.error(error);
+				res.status(500).json({ message: "Internal server error" });
+			}
+		},
 
-            if (typeof title !== "string" || !title.trim() || categoryId === undefined || categoryId === null) {
-                return res.status(422).json({
-                    message: "required fields are missing"
-                })
-            }
+		async getMyPosts(_req, res) {
+			const userId = res.locals.userId;
+			if (userId === undefined) {
+				res.status(401).json({ message: "Unauthorized" });
+				return;
+			}
 
-            if (!Number.isInteger(categoryId) || categoryId <= 0) {
-                return res.status(400).json({
-                    message: "invalid categoryId"
-                })
-            }
-
-            if (content !== undefined && content !== null && typeof content !== "string") {
-                return res.status(400).json({
-                    message: "content must be a string"
-                })
-            }
-
-            try {
-                const post = await PostServices.addPost({
-                    title,
-                    content: content ?? null,
-                    userId: userId,
-                    categoryId
-                })
-
-                return res.status(201).json(post)
-            } catch (error) {
-                if (hasErrorCode(error, "CATEGORY_NOT_FOUND")) {
-                    return res.status(404).json({
-                        message: "category not found"
-                    })
-                }
-
-                if (hasErrorCode(error, "USER_NOT_FOUND")) {
-                    return res.status(404).json({
-                        message: "user not found"
-                    })
-                }
-
-                if (isUniqueViolation(error)) {
-                    return res.status(400).json({
-                        message: "post with this title already exists"
-                    })
-                }
-
-                console.error("ADD POST ERROR:", error)
-
-                return res.status(500).json({
-                    message: "internal server error"
-                })
-            }
-        },
-        async getMyPosts(req, res) {
-            const userId = res.locals.userId
-
-            if (typeof userId !== "number" || !Number.isSafeInteger(userId) || userId <= 0) {
-                return res.status(401).json({
-                    message: "unauthorized"
-                })
-            }
-
-            try {
-                const posts = await PostServices.getPostsByAuthorId(userId)
-
-                return res.status(200).json(posts)
-            } catch (error) {
-                console.error("GET MY POSTS ERROR:", error)
-
-                return res.status(500).json({
-                    message: "internal server error"
-                })
-            }
-        }
-    }
+			try {
+				const posts = await postService.getPostsByAuthorId(userId);
+				res.status(200).json(posts);
+			} catch (error) {
+				console.error(error);
+				res.status(500).json({ message: "Internal server error" });
+			}
+		},
+	};
 }

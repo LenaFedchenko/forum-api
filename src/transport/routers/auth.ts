@@ -1,18 +1,15 @@
-import { Router } from "express";
-import type { UserHandler } from "../handlers/user.js";
-import type { RequestHandler } from "express";
+import { type RequestHandler, Router } from "express";
+import type { AuthHandlers } from "../handlers/auth.js";
 
-export function createUserRouter(
-    userHandler: UserHandler,
-    requireAuth: RequestHandler
+export function createAuthRouter(
+	handlers: AuthHandlers,
+	requireAuth: RequestHandler,
 ) {
-    const router = Router();
-
-    router.post("/register", userHandler.register);
-    router.post("/login", userHandler.login);
-    router.post("/refresh", userHandler.refresh);
-    router.post("/logout", userHandler.logout);
-    router.get("/me", requireAuth, userHandler.me);
-
-    return router;
+	const router = Router();
+	router.post("/register", handlers.register);
+	router.post("/login", handlers.login);
+	router.post("/refresh", handlers.refresh);
+	router.post("/logout", handlers.logout);
+	router.get("/me", requireAuth, handlers.me);
+	return router;
 }

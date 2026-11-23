@@ -1,16 +1,16 @@
-import type { RefreshSession } from "./entity";
+import type { RefreshSession } from "./entity.js";
 
+export type NewRefreshSession = Omit<RefreshSession, "id">;
 
-export type NewRefreshSession = Pick<
-    RefreshSession,
-    "userId" | "tokenHash" | "expiresAt"
->;
+export interface RotateRefreshSession {
+	oldHash: string;
+	newHash: string;
+	expiresAt: Date;
+}
 
-export type StoredRefreshSession = Omit<RefreshSession, "user">;
-
-export interface refreshSessionRepository{
-    create(data: NewRefreshSession): Promise<void>;
-    getByHash(hash: string): Promise<StoredRefreshSession | null>;
-    rotation(oldHash: string, newTokenHash: string, expiresAt: Date): Promise<boolean>;
-    deleteByHash(hash: string): Promise<void>;
+export interface RefreshSessionRepository {
+	create(data: NewRefreshSession): Promise<void>;
+	getByHash(hash: string): Promise<RefreshSession | null>;
+	rotate(data: RotateRefreshSession): Promise<boolean>;
+	deleteByHash(hash: string): Promise<void>;
 }

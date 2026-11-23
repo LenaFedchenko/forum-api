@@ -1,7 +1,9 @@
-import type { Category } from "./entity";
+import type { Category } from "./entity.js";
+
+export type NewCategory = Omit<Category, "id">;
 
 export interface CategoryRepository {
-    getAll(): Promise<Category[]>;
-    getById(id: number): Promise<Category | null>;
-    addCategory(category: Omit<Category, "id">): Promise<Category>;
+	getAll(): Promise<Category[]>;
+	getById(id: number): Promise<Category | null>;
+	create(data: NewCategory): Promise<Category>;
 }

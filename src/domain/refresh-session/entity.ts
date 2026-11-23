@@ -1,9 +1,6 @@
-import type { User } from "../user/entity";
-
 export interface RefreshSession {
-    id: number;
-    tokenHash: string;
-    user: User;
-    userId: number;
-    expiresAt: Date;
+	id: number;
+	tokenHash: string;
+	userId: number;
+	expiresAt: Date;
 }

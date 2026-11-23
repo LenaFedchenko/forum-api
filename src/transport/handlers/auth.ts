@@ -1,245 +1,149 @@
-import type { CookieOptions, Request, Response } from "express";
-import type { UserResponse } from "../dto/user/responses.js";
-import type { LoginUser, UserService } from "../../services/types/user.types.js";
-import type { UserRequest } from "../dto/user/requestes.js";
-import { hasErrorCode, isUniqueViolation } from "../errors.js";
+import type { RequestHandler } from "express";
+import type { AuthService } from "../../services/auth/auth.types.js";
+import {
+	clearAuthCookies,
+	readRefreshToken,
+	setAuthCookies,
+} from "../cookies/auth-cookies.js";
+import type { LoginRequest, RegisterRequest } from "../dto/auth/requests.js";
+import type { UserResponse } from "../dto/auth/responses.js";
+import type {
+	ErrorResponse,
+	MessageResponse,
+	NoParams,
+} from "../dto/common.js";
 
-export interface UserError {
-    message: string;
+export interface AuthHandlers {
+	register: RequestHandler<
+		NoParams,
+		UserResponse | ErrorResponse,
+		RegisterRequest
+	>;
+	login: RequestHandler<NoParams, UserResponse | ErrorResponse, LoginRequest>;
+	refresh: RequestHandler<NoParams, MessageResponse | ErrorResponse>;
+	logout: RequestHandler<NoParams, MessageResponse | ErrorResponse>;
+	me: RequestHandler<NoParams, UserResponse | ErrorResponse>;
 }
 
-export interface UserHandler {
-    register(
-        req: Request<{}, UserResponse | UserError, UserRequest>,
-        res: Response<UserResponse | UserError>
-    ): Promise<Response<UserResponse | UserError>>;
+export function createAuthHandlers(authService: AuthService): AuthHandlers {
+	return {
+		async register(req, res) {
+			const { name, email, password } = req.body ?? {};
 
-    login(
-        req: Request<{}, UserResponse | UserError, LoginUser>,
-        res: Response<UserResponse | UserError>
-    ): Promise<Response<UserResponse | UserError>>;
+			if (
+				typeof name !== "string" ||
+				typeof email !== "string" ||
+				typeof password !== "string" ||
+				!name.trim() ||
+				!email.trim() ||
+				!password.trim()
+			) {
+				res.status(422).json({ message: "Invalid user data" });
+				return;
+			}
 
-    refresh(
-        req: Request<{}, { accessToken: string } | UserError, {}>,
-        res: Response<{ accessToken: string } | UserError>
-    ): Promise<Response<{ accessToken: string } | UserError>>;
-    logout(
-        req: Request<{}, UserError, {}>,
-        res: Response<UserError>
-    ): Promise<Response<UserError>>;
-    me(
-        req: Request<{}, UserResponse | UserError, {}>,
-        res: Response<UserResponse | UserError>
-    ): Promise<Response<UserResponse | UserError>>;
-}
+			try {
+				const user = await authService.register({ name, email, password });
+				res.status(201).json(user);
+			} catch (error) {
+				if (
+					error instanceof Error &&
+					error.message === "EMAIL_ALREADY_EXISTS"
+				) {
+					res.status(409).json({ message: "Email already exists" });
+					return;
+				}
+				console.error(error);
+				res.status(500).json({ message: "Internal server error" });
+			}
+		},
 
-const ACCESS_TOKEN_MAX_AGE = 15 * 60 * 1000;
-const REFRESH_TOKEN_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
+		async login(req, res) {
+			const { email, password } = req.body ?? {};
 
-const baseCookieOptions: CookieOptions = {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax"
-};
+			if (
+				typeof email !== "string" ||
+				typeof password !== "string" ||
+				!email.trim() ||
+				!password.trim()
+			) {
+				res.status(422).json({ message: "Invalid user data" });
+				return;
+			}
 
-// refresh-cookie уходит только на /users/*, то есть на refresh и logout
-const accessCookieOptions: CookieOptions = { ...baseCookieOptions, path: "/" };
-const refreshCookieOptions: CookieOptions = { ...baseCookieOptions, path: "/users" };
+			try {
+				const result = await authService.login({ email, password });
+				setAuthCookies(res, result);
+				res.status(200).json(result.user);
+			} catch (error) {
+				if (error instanceof Error && error.message === "INVALID_CREDENTIALS") {
+					res.status(401).json({ message: "Invalid credentials" });
+					return;
+				}
+				console.error(error);
+				res.status(500).json({ message: "Internal server error" });
+			}
+		},
 
-function setAuthCookies(res: Response, tokens: { accessToken: string; refreshToken: string }) {
-    res.cookie("accessToken", tokens.accessToken, {
-        ...accessCookieOptions,
-        maxAge: ACCESS_TOKEN_MAX_AGE
-    });
+		async refresh(req, res) {
+			const refreshToken = readRefreshToken(req);
 
-    res.cookie("refreshToken", tokens.refreshToken, {
-        ...refreshCookieOptions,
-        maxAge: REFRESH_TOKEN_MAX_AGE
-    });
-}
+			if (!refreshToken) {
+				res.status(401).json({ message: "Unauthorized" });
+				return;
+			}
 
-function clearAuthCookies(res: Response) {
-    res.clearCookie("accessToken", accessCookieOptions);
-    res.clearCookie("refreshToken", refreshCookieOptions);
-}
+			try {
+				// новые токены уходят только в cookie
+				const tokens = await authService.refresh(refreshToken);
+				setAuthCookies(res, tokens);
+				res.status(200).json({ message: "Tokens updated" });
+			} catch (error) {
+				if (
+					error instanceof Error &&
+					(error.message === "INVALID_REFRESH_TOKEN" ||
+						error.message === "USER_NOT_FOUND")
+				) {
+					clearAuthCookies(res);
+					res.status(401).json({ message: "Unauthorized" });
+					return;
+				}
+				console.error(error);
+				res.status(500).json({ message: "Internal server error" });
+			}
+		},
 
-export function createUserHandler(userService: UserService): UserHandler {
-    return {
-        async register(req, res) {
-            const { name, email, password } = req.body ?? {};
+		async logout(req, res) {
+			try {
+				// без cookie удалять нечего, но cookie всё равно чистим: logout идемпотентный
+				await authService.logout(readRefreshToken(req));
+				clearAuthCookies(res);
+				res.status(200).json({ message: "Successfully logged out" });
+			} catch (error) {
+				console.error(error);
+				res.status(500).json({ message: "Internal server error" });
+			}
+		},
 
-            if (
-                typeof name !== "string" ||
-                typeof email !== "string" ||
-                typeof password !== "string" ||
-                !name.trim() ||
-                !email.trim() ||
-                !password.trim()
-            ) {
-                return res.status(422).json({
-                    message: "all fields are required"
-                });
-            }
+		async me(_req, res) {
+			const userId = res.locals.userId;
+			if (userId === undefined) {
+				res.status(401).json({ message: "Unauthorized" });
+				return;
+			}
 
-            try {
-                const user = await userService.register({
-                    name,
-                    email,
-                    password
-                });
-
-                return res.status(201).json(user);
-            } catch (error) {
-                if (hasErrorCode(error, "EMAIL_ALREADY_EXISTS") || isUniqueViolation(error)) {
-                    return res.status(409).json({
-                        message: "email already exists"
-                    });
-                }
-
-                console.error(error);
-
-                return res.status(500).json({
-                    message: "internal server error"
-                });
-            }
-        },
-
-        async login(req, res) {
-            const { email, password } = req.body ?? {};
-
-            if (
-                typeof email !== "string" ||
-                typeof password !== "string" ||
-                !email.trim() ||
-                !password.trim()
-            ) {
-                return res.status(422).json({
-                    message: "all fields are required"
-                });
-            }
-
-            try {
-                const result = await userService.login({
-                    email,
-                    password
-                });
-
-                setAuthCookies(res, result);
-
-                return res.status(200).json(result.user);
-            } catch (error) {
-                if (hasErrorCode(error, "INVALID_CREDENTIALS")) {
-                    return res.status(401).json({
-                        message: "invalid credentials"
-                    });
-                }
-
-                console.error("LOGIN ERROR:", error);
-
-                return res.status(500).json({
-                    message: "internal server error"
-                });
-            }
-        },
-
-        async refresh(req, res) {
-            const refreshToken = req.cookies?.refreshToken;
-
-            if (
-                typeof refreshToken !== "string" ||
-                !refreshToken.trim()
-            ) {
-                return res.status(401).json({
-                    message: "refresh token is required"
-                });
-            }
-
-            try {
-                const result = await userService.refresh(refreshToken);
-
-                setAuthCookies(res, result);
-
-                return res.status(200).json({
-                    accessToken: result.accessToken
-                });
-            } catch (error) {
-                if (hasErrorCode(error, "INVALID_TOKEN")) {
-                    clearAuthCookies(res);
-
-                    return res.status(401).json({
-                        message: "invalid refresh token"
-                    });
-                }
-
-                if (hasErrorCode(error, "USER_NOT_FOUND")) {
-                    clearAuthCookies(res);
-
-                    return res.status(404).json({
-                        message: "user not found"
-                    });
-                }
-
-                console.error("REFRESH ERROR:", error);
-
-                return res.status(500).json({
-                    message: "internal server error"
-                });
-            }
-        },
-
-        async logout(req, res) {
-            const refreshToken = req.cookies?.refreshToken;
-
-            try {
-                // без cookie удалять нечего, но cookie всё равно чистим: logout идемпотентный
-                if (typeof refreshToken === "string" && refreshToken.trim()) {
-                    await userService.logout(refreshToken);
-                }
-
-                clearAuthCookies(res);
-
-                return res.status(204).end();
-            } catch (error) {
-                console.error("LOGOUT ERROR:", error);
-
-                return res.status(500).json({
-                    message: "internal server error"
-                });
-            }
-        },
-
-        async me(req, res) {
-            const userId = res.locals.userId;
-
-            if (typeof userId !== "number") {
-                return res.status(401).json({
-                    message: "unauthorized"
-                });
-            }
-
-            try {
-                const user = await userService.me(userId);
-
-                if (!user) {
-                    return res.status(404).json({
-                        message: "user not found"
-                    });
-                }
-
-                return res.status(200).json(user);
-            } catch (error) {
-                if (hasErrorCode(error, "USER_NOT_FOUND")) {
-                    return res.status(404).json({
-                        message: "user not found"
-                    });
-                }
-
-                console.error("ME ERROR:", error);
-
-                return res.status(500).json({
-                    message: "internal server error"
-                });
-            }
-        }
-    };
+			try {
+				const user = await authService.me(userId);
+				res.status(200).json(user);
+			} catch (error) {
+				// токен ещё живой, а пользователя уже нет
+				if (error instanceof Error && error.message === "USER_NOT_FOUND") {
+					res.status(401).json({ message: "Unauthorized" });
+					return;
+				}
+				console.error(error);
+				res.status(500).json({ message: "Internal server error" });
+			}
+		},
+	};
 }

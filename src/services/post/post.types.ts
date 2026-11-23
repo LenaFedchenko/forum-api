@@ -1,8 +1,16 @@
-import type { Post } from "../../domain/post/entity.js"
+import type { PostWithRelations } from "../../domain/post/entity.js";
+import type { PostFilter } from "../../domain/post/repository.js";
 
-export interface PostServices{
-    getAll(take?: number, category?: string): Promise<Post[]>
-    getById(id: number): Promise<Post | null>
-    addPost(post: Omit<Post, "id" | "user" | "category">): Promise<Post>
-    getPostsByAuthorId(userId: number): Promise<Post[]>
+export interface CreatePostInput {
+	title: string;
+	content: string | null;
+	categoryId: number;
+	userId: number;
+}
+
+export interface PostService {
+	getAll(filter?: PostFilter): Promise<PostWithRelations[]>;
+	getById(id: number): Promise<PostWithRelations | null>;
+	addPost(input: CreatePostInput): Promise<PostWithRelations>;
+	getPostsByAuthorId(userId: number): Promise<PostWithRelations[]>;
 }

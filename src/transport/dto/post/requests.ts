@@ -1,13 +1,11 @@
-export interface QueryParams{
-    take: string | undefined
-    category: string 
+export interface PostsQuery {
+	take?: string;
+	// имя категории
+	category?: string;
 }
-export interface RouteParams{
-    id: string | undefined
-}
-export interface PostRequest {
-    title: string;
-    content: string | null;
-    categoryId: number;
-    userId: number | null;
+
+export interface CreatePostRequest {
+	title: string;
+	content?: string | null;
+	categoryId: number;
 }

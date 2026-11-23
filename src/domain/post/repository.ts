@@ -1,8 +1,16 @@
-import type { Post } from "./entity.js";
+import type { Post, PostWithRelations } from "./entity.js";
+
+export type NewPost = Omit<Post, "id">;
+
+export interface PostFilter {
+	take?: number | undefined;
+	// имя категории
+	category?: string | undefined;
+}
 
 export interface PostRepository {
-    getAll(take?: number, category?: string): Promise<Post[]>;
-    getById(id: number): Promise<Post | null>;
-    addPost(post: Omit<Post, "id">): Promise<Post>;
-    getPostsByAuthorId(userId: number): Promise<Post[]>;
+	getAll(filter?: PostFilter): Promise<PostWithRelations[]>;
+	getById(id: number): Promise<PostWithRelations | null>;
+	create(data: NewPost): Promise<PostWithRelations>;
+	getPostsByAuthorId(userId: number): Promise<PostWithRelations[]>;
 }

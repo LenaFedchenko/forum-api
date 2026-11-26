@@ -4,9 +4,11 @@ import { createPostRepository } from "../repositories/post.js";
 import { createPostService } from "../services/post/post.js";
 import { createPostHandlers } from "../transport/handlers/post.js";
 import { createPostRouter } from "../transport/routers/post.js";
+import { CommentHandlers } from "../transport/handlers/comment.js";
 
-export function createPostModule(db: Database, requireAuth: RequestHandler) {
+export function createPostModule(db: Database, requireAuth: RequestHandler, comments: CommentHandlers) {
 	const repository = createPostRepository(db);
 	const service = createPostService(repository);
-	return createPostRouter(createPostHandlers(service), requireAuth);
+	const handlers = createPostHandlers(service);
+	return createPostRouter(handlers, requireAuth, comments);
 }

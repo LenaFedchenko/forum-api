@@ -1,0 +1,13 @@
+// use prisma-8
+
+model Comment {
+    id        Int      @id @default(autoincrement())
+    content   String
+    postId    Int
+    post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+    authorId  Int
+    user      User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+    createdAt DateTime @default(now())
+}
+
+

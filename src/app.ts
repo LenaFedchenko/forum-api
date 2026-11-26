@@ -7,6 +7,7 @@ import { createAuthModule } from "./modules/auth.js";
 import { createCategoryModule } from "./modules/category.js";
 import { createPostModule } from "./modules/post.js";
 import { createDb } from "./prisma/db.js";
+import { createCommentModule } from "./modules/comment.js";
 
 const db = createDb(config.databaseUrl);
 const app = express();
@@ -20,8 +21,9 @@ app.get("/health", (_req, res) => {
 });
 
 const auth = createAuthModule(db, config);
-
-app.use(ROUTES.POSTS, createPostModule(db, auth.requireAuth));
+const comments = createCommentModule(db, auth.requireAuth);
+app.use(ROUTES.POSTS, createPostModule(db, auth.requireAuth, comments.handlers));
+app.use(ROUTES.COMMENTS, comments.router);
 app.use(ROUTES.CATEGORIES, createCategoryModule(db));
 app.use(ROUTES.AUTH, auth.router);
 
